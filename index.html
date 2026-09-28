@@ -45,6 +45,7 @@
   }
 
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0;
     background: var(--bg);
@@ -84,7 +85,7 @@
   .down { color: var(--down); }
   .flat { color: var(--ink-3); }
 
-  .stocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; }
+  .stocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
   .card {
     text-align: left; font: inherit; color: inherit; cursor: pointer;
     background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
@@ -92,7 +93,8 @@
   }
   .card:hover { border-color: var(--ink-3); }
   .card[aria-pressed="true"] { border-color: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
-  .card .top { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .card .top { display: flex; align-items: center; gap: 8px; font-weight: 600; min-width: 0; }
+  .card .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .card .sw { width: 10px; height: 10px; border-radius: 3px; background: var(--c); flex: none; }
   .card .code { color: var(--ink-3); font-weight: 400; font-size: 12px; margin-left: auto; }
   .card .px { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
@@ -140,6 +142,8 @@
   @media (max-width: 520px) {
     .wrap { padding-inline: 16px; }
     h1 { font-size: 22px; }
+    .stocks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .card .code { display: none; }
     .total .val { font-size: 23px; }
   }
 </style>
@@ -255,7 +259,7 @@
       s.quantity = r.quantity;
       s.points.push({ date: r.date, t: Date.parse(r.date + "T00:00:00Z"), close: r.close });
     }
-    state.stocks = [...map.values()].map((s, i) => ({ ...s, color: SERIES[i % SERIES.length] }));
+    state.stocks = [...map.values()].sort((a, b) => a.ticker.localeCompare(b.ticker)).map((s, i) => ({ ...s, color: SERIES[i % SERIES.length] }));
     state.rows = rows;
     state.sample = sample;
     if (!state.stocks.some((s) => s.ticker === state.selected)) state.selected = state.stocks[0].ticker;
@@ -315,7 +319,7 @@
       t.now += last.close * s.quantity;
       t.prev += (prev || last).close * s.quantity;
     }
-    $("totals").innerHTML = Object.entries(totals).map(([cur, t]) => {
+    $("totals").innerHTML = Object.entries(totals).sort(([a], [b]) => (b === "KRW") - (a === "KRW")).map(([cur, t]) => {
       const c = t.prev ? (t.now / t.prev - 1) * 100 : 0;
       const diff = t.now - t.prev;
       return `<div class="total">
@@ -342,7 +346,7 @@
       const c = prev ? (last.close / prev.close - 1) * 100 : 0;
       const pressed = state.mode === "price" && s.ticker === state.selected;
       return `<button type="button" class="card" data-ticker="${esc(s.ticker)}" aria-pressed="${pressed}" style="--c:var(${s.color})">
-        <span class="top"><span class="sw"></span>${esc(s.name)}<span class="code">${esc(s.ticker)}</span></span>
+        <span class="top"><span class="sw"></span><span class="nm">${esc(s.name)}</span><span class="code">${esc(s.ticker)}</span></span>
         <span class="px">${fmtPrice(last.close, s.currency)}<small>${esc(curLabel(s.currency))}</small></span>
         <span class="meta"><span class="${dir(c)}">${prev ? pct(c) : "–"}</span><span>${s.quantity != null ? s.quantity.toLocaleString("ko-KR") + "주" : ""}</span></span>
         <svg viewBox="0 0 200 34" preserveAspectRatio="none" aria-hidden="true"><path d="${sparkPath(s.points, 200, 34)}" fill="none" stroke="var(${s.color})" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>
