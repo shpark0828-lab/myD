@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>내 주식 종가 차트</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --bg: #f6f6f3;
+    --surface: #fdfdfc;
+    --line: #e4e3de;
+    --grid: #ecebe6;
+    --ink: #151514;
+    --ink-2: #55544f;
+    --ink-3: #85847d;
+    --accent: #2a78d6;
+    --up: #d1383a;
+    --down: #1f68c9;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+    --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
+    --shadow: 0 1px 2px rgba(20, 20, 15, .05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #121211; --surface: #1a1a19; --line: #2e2e2b; --grid: #262624;
+      --ink: #f4f4f1; --ink-2: #c3c2b7; --ink-3: #8d8c84;
+      --accent: #3987e5; --up: #f0605f; --down: #5a9bef;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+      --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121211; --surface: #1a1a19; --line: #2e2e2b; --grid: #262624;
+    --ink: #f4f4f1; --ink-2: #c3c2b7; --ink-3: #8d8c84;
+    --accent: #3987e5; --up: #f0605f; --down: #5a9bef;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --shadow: none;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 56px; display: grid; gap: 20px; }
+
+  header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+  h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; }
+  .sub { margin: 2px 0 0; color: var(--ink-2); font-size: 14px; }
+  .load { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .btn, .seg button {
+    font: inherit; font-size: 13px; font-weight: 500; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 12px; cursor: pointer;
+  }
+  .btn:hover, .seg button:hover { border-color: var(--ink-3); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .notice {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    background: color-mix(in srgb, var(--s4) 12%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--s4) 40%, var(--line));
+    border-radius: 10px; padding: 10px 14px; font-size: 14px; color: var(--ink);
+  }
+  .notice b { font-weight: 600; }
+
+  .totals { display: flex; flex-wrap: wrap; gap: 12px 40px; }
+  .total .lbl { font-size: 12px; letter-spacing: .04em; color: var(--ink-3); }
+  .total .val { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+  .total .chg { font-size: 14px; font-weight: 500; }
+
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+  .flat { color: var(--ink-3); }
+
+  .stocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; }
+  .card {
+    text-align: left; font: inherit; color: inherit; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px 10px; display: grid; gap: 2px; box-shadow: var(--shadow);
+  }
+  .card:hover { border-color: var(--ink-3); }
+  .card[aria-pressed="true"] { border-color: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
+  .card .top { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .card .sw { width: 10px; height: 10px; border-radius: 3px; background: var(--c); flex: none; }
+  .card .code { color: var(--ink-3); font-weight: 400; font-size: 12px; margin-left: auto; }
+  .card .px { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+  .card .px small { font-size: 12px; font-weight: 400; color: var(--ink-3); margin-left: 3px; }
+  .card .meta { display: flex; justify-content: space-between; font-size: 13px; }
+  .card .meta span:last-child { color: var(--ink-3); }
+  .card svg { width: 100%; height: 34px; display: block; margin-top: 4px; }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 12px; box-shadow: var(--shadow); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .panel h2 { margin: 0; font-size: 16px; font-weight: 600; }
+  .panel .hint { color: var(--ink-3); font-size: 13px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 5px 11px; background: transparent; color: var(--ink-2); }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .chart { position: relative; }
+  .chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+  .chart text { font-family: inherit; font-size: 12px; fill: var(--ink-3); }
+  .tip {
+    position: absolute; pointer-events: none; z-index: 2;
+    background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; font-size: 13px; min-width: 150px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  }
+  .tip .d { color: var(--ink-3); font-size: 12px; margin-bottom: 4px; }
+  .tip .r { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .tip .r i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .tip .r b { margin-left: auto; padding-left: 12px; font-weight: 600; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); margin-top: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 14px; height: 3px; border-radius: 2px; }
+
+  details summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+  .tbl { overflow-x: auto; margin-top: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { padding: 6px 10px; border-bottom: 1px solid var(--grid); text-align: right; white-space: nowrap; }
+  th { color: var(--ink-3); font-weight: 500; position: sticky; top: 0; background: var(--surface); }
+  th:first-child, td:first-child { text-align: left; }
+  .empty { padding: 48px 12px; text-align: center; color: var(--ink-3); }
+  footer { color: var(--ink-3); font-size: 12px; }
+
+  @media (max-width: 520px) {
+    .wrap { padding-inline: 16px; }
+    h1 { font-size: 22px; }
+    .total .val { font-size: 23px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>내 주식 종가</h1>
+      <p class="sub" id="sub">불러오는 중…</p>
+    </div>
+    <div class="load">
+      <label class="btn" for="file">CSV 불러오기</label>
+      <input id="file" type="file" accept=".csv,text/csv" hidden>
+    </div>
+  </header>
+
+  <div class="notice" id="notice" hidden>
+    <span><b>예시 데이터입니다.</b> 아직 <code>data/closing_prices.csv</code>를 찾지 못했습니다. 종가가 기록되면 자동으로 내 데이터가 표시되고, 파일을 직접 불러오거나 이 화면에 끌어다 놓아도 됩니다.</span>
+  </div>
+
+  <section class="totals" id="totals" aria-label="통화별 평가금액"></section>
+
+  <section class="stocks" id="stocks" aria-label="보유 종목"></section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <div>
+        <h2 id="chartTitle">수익률 비교</h2>
+        <div class="hint" id="chartHint"></div>
+      </div>
+      <div class="controls">
+        <div class="seg" id="modeSeg" role="group" aria-label="차트 종류">
+          <button type="button" data-mode="compare">수익률 비교</button>
+          <button type="button" data-mode="price">종가</button>
+        </div>
+        <div class="seg" id="rangeSeg" role="group" aria-label="기간">
+          <button type="button" data-range="30">1개월</button>
+          <button type="button" data-range="91">3개월</button>
+          <button type="button" data-range="182">6개월</button>
+          <button type="button" data-range="365">1년</button>
+          <button type="button" data-range="0">전체</button>
+        </div>
+      </div>
+    </div>
+    <div class="chart" id="chart"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section class="panel">
+    <details id="tableBox">
+      <summary>날짜별 종가 표</summary>
+      <div class="tbl" id="table"></div>
+    </details>
+  </section>
+
+  <footer>시세 출처: Yahoo Finance · 매일 GitHub Actions가 <code>data/closing_prices.csv</code>에 기록합니다. 상승은 빨강 ▲, 하락은 파랑 ▼.</footer>
+</div>
+
+<script>
+(() => {
+  const SERIES = ["--s1","--s2","--s3","--s4","--s5","--s6","--s7","--s8"];
+  const state = { rows: [], stocks: [], mode: "compare", range: 91, selected: null, sample: false };
+  const $ = (id) => document.getElementById(id);
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+
+  // ---------- CSV ----------
+  function parseCSV(text) {
+    text = text.replace(/^﻿/, "");
+    const out = []; let row = [], cell = "", q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) {
+        if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (c === '"') q = false;
+        else cell += c;
+      } else if (c === '"') q = true;
+      else if (c === ",") { row.push(cell); cell = ""; }
+      else if (c === "\n" || c === "\r") {
+        if (c === "\r" && text[i + 1] === "\n") i++;
+        row.push(cell); cell = "";
+        if (row.some((x) => x !== "")) out.push(row);
+        row = [];
+      } else cell += c;
+    }
+    row.push(cell);
+    if (row.some((x) => x !== "")) out.push(row);
+    const [head, ...body] = out;
+    return body.map((r) => Object.fromEntries(head.map((h, i) => [h.trim(), (r[i] ?? "").trim()])));
+  }
+
+  function ingest(records, sample) {
+    const rows = records
+      .filter((r) => r.date && r.ticker && r.close !== "")
+      .map((r) => ({
+        date: r.date, ticker: r.ticker, name: r.name || r.ticker,
+        close: +r.close, currency: r.currency || "",
+        quantity: r.quantity === "" || r.quantity == null ? null : +r.quantity,
+      }))
+      .filter((r) => isFinite(r.close))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (!rows.length) return false;
+
+    const map = new Map();
+    for (const r of rows) {
+      if (!map.has(r.ticker)) map.set(r.ticker, { ticker: r.ticker, name: r.name, currency: r.currency, points: [] });
+      const s = map.get(r.ticker);
+      s.name = r.name; s.currency = r.currency || s.currency;
+      s.quantity = r.quantity;
+      s.points.push({ date: r.date, t: Date.parse(r.date + "T00:00:00Z"), close: r.close });
+    }
+    state.stocks = [...map.values()].map((s, i) => ({ ...s, color: SERIES[i % SERIES.length] }));
+    state.rows = rows;
+    state.sample = sample;
+    if (!state.stocks.some((s) => s.ticker === state.selected)) state.selected = state.stocks[0].ticker;
+    render();
+    return true;
+  }
+
+  // ---------- 예시 데이터 ----------
+  function sampleCSV() {
+    const defs = [
+      ["005930", "삼성전자", 10, 71500, "KRW", 0.017, 0.0009],
+      ["000660", "SK하이닉스", 5, 176000, "KRW", 0.024, 0.0014],
+      ["AAPL", "Apple", 3, 214, "USD", 0.014, 0.0006],
+    ];
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const gauss = () => Math.sqrt(-2 * Math.log(rnd())) * Math.cos(2 * Math.PI * rnd());
+    const days = [];
+    for (let d = new Date(Date.UTC(2026, 3, 1)); d <= new Date(Date.UTC(2026, 8, 25)); d.setUTCDate(d.getUTCDate() + 1)) {
+      if (d.getUTCDay() % 6) days.push(d.toISOString().slice(0, 10));
+    }
+    const lines = ["date,ticker,name,close,change_pct,currency,quantity,value"];
+    for (const [tk, nm, q, p0, cur, vol, drift] of defs) {
+      let p = p0;
+      for (const day of days) {
+        p *= 1 + drift + vol * gauss();
+        const px = cur === "KRW" ? Math.round(p / 100) * 100 : Math.round(p * 100) / 100;
+        lines.push([day, tk, nm, px, "", cur, q, ""].join(","));
+      }
+    }
+    return lines.join("\n");
+  }
+
+  // ---------- 포맷 ----------
+  const fmtPrice = (v, cur) => {
+    const d = cur === "KRW" || cur === "JPY" ? 0 : 2;
+    return v.toLocaleString("ko-KR", { minimumFractionDigits: d, maximumFractionDigits: d });
+  };
+  const curLabel = (c) => ({ KRW: "원", USD: "달러", JPY: "엔" }[c] || c);
+  const pct = (v) => (v > 0 ? "▲ " : v < 0 ? "▼ " : "") + Math.abs(v).toFixed(2) + "%";
+  const dir = (v) => (v > 0 ? "up" : v < 0 ? "down" : "flat");
+  const fmtDate = (s) => { const [y, m, d] = s.split("-"); return `${y}.${m}.${d}`; };
+  const shortDate = (t) => { const d = new Date(t); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; };
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // ---------- 요약 ----------
+  function renderTotals() {
+    const latestDate = state.rows.at(-1).date;
+    $("sub").textContent = `${state.stocks.length}개 종목 · 마지막 기록 ${fmtDate(latestDate)}` + (state.sample ? " · 예시" : "");
+    $("notice").hidden = !state.sample;
+
+    const totals = {};
+    for (const s of state.stocks) {
+      if (s.quantity == null) continue;
+      const n = s.points.length, last = s.points[n - 1], prev = s.points[n - 2];
+      const t = (totals[s.currency] ||= { now: 0, prev: 0 });
+      t.now += last.close * s.quantity;
+      t.prev += (prev || last).close * s.quantity;
+    }
+    $("totals").innerHTML = Object.entries(totals).map(([cur, t]) => {
+      const c = t.prev ? (t.now / t.prev - 1) * 100 : 0;
+      const diff = t.now - t.prev;
+      return `<div class="total">
+        <div class="lbl">평가금액 (${esc(cur)})</div>
+        <div class="val">${fmtPrice(t.now, cur)} <span style="font-size:15px;font-weight:500">${esc(curLabel(cur))}</span></div>
+        <div class="chg ${dir(c)}">${pct(c)} (${diff >= 0 ? "+" : "−"}${fmtPrice(Math.abs(diff), cur)}) 전일 대비</div>
+      </div>`;
+    }).join("");
+  }
+
+  function sparkPath(points, w, h) {
+    const pts = points.slice(-30);
+    const ys = pts.map((p) => p.close), lo = Math.min(...ys), hi = Math.max(...ys);
+    return pts.map((p, i) => {
+      const x = pts.length > 1 ? (i / (pts.length - 1)) * w : w / 2;
+      const y = hi === lo ? h / 2 : 2 + (1 - (p.close - lo) / (hi - lo)) * (h - 4);
+      return (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1);
+    }).join("");
+  }
+
+  function renderCards() {
+    $("stocks").innerHTML = state.stocks.map((s) => {
+      const n = s.points.length, last = s.points[n - 1], prev = s.points[n - 2];
+      const c = prev ? (last.close / prev.close - 1) * 100 : 0;
+      const pressed = state.mode === "price" && s.ticker === state.selected;
+      return `<button type="button" class="card" data-ticker="${esc(s.ticker)}" aria-pressed="${pressed}" style="--c:var(${s.color})">
+        <span class="top"><span class="sw"></span>${esc(s.name)}<span class="code">${esc(s.ticker)}</span></span>
+        <span class="px">${fmtPrice(last.close, s.currency)}<small>${esc(curLabel(s.currency))}</small></span>
+        <span class="meta"><span class="${dir(c)}">${prev ? pct(c) : "–"}</span><span>${s.quantity != null ? s.quantity.toLocaleString("ko-KR") + "주" : ""}</span></span>
+        <svg viewBox="0 0 200 34" preserveAspectRatio="none" aria-hidden="true"><path d="${sparkPath(s.points, 200, 34)}" fill="none" stroke="var(${s.color})" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>
+      </button>`;
+    }).join("");
+  }
+
+  // ---------- 메인 차트 ----------
+  function niceTicks(lo, hi, count) {
+    const span = hi - lo || Math.abs(hi) || 1;
+    const step0 = span / count, mag = 10 ** Math.floor(Math.log10(step0));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= step0);
+    const ticks = [];
+    for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) ticks.push(+v.toFixed(10));
+    return { ticks, step };
+  }
+
+  function chartSeries() {
+    const all = state.rows.map((r) => Date.parse(r.date + "T00:00:00Z"));
+    const end = Math.max(...all);
+    const start = state.range ? end - state.range * 864e5 : -Infinity;
+    const list = state.mode === "price" ? state.stocks.filter((s) => s.ticker === state.selected) : state.stocks;
+    return list.map((s) => {
+      const pts = s.points.filter((p) => p.t >= start);
+      const base = pts[0]?.close;
+      return {
+        ...s,
+        pts: pts.map((p) => ({ ...p, v: state.mode === "price" ? p.close : (p.close / base - 1) * 100 })),
+      };
+    }).filter((s) => s.pts.length);
+  }
+
+  function renderChart() {
+    const box = $("chart");
+    const series = chartSeries();
+    const isPrice = state.mode === "price";
+    const sel = state.stocks.find((s) => s.ticker === state.selected);
+    $("chartTitle").textContent = isPrice ? `${sel.name} 종가` : "수익률 비교";
+    $("chartHint").textContent = isPrice
+      ? `단위: ${curLabel(sel.currency)} · 위 카드를 눌러 다른 종목 보기`
+      : "기간 시작일 종가 대비 등락률(%) · 카드를 누르면 해당 종목 종가 차트";
+
+    if (!series.length || series.every((s) => s.pts.length < 2)) {
+      box.innerHTML = `<div class="empty">이 기간에는 그릴 데이터가 부족합니다. 기간을 늘려 보세요.</div>`;
+      $("legend").innerHTML = "";
+      return;
+    }
+
+    const W = Math.max(320, box.clientWidth), H = W < 520 ? 260 : 340;
+    const labelW = !isPrice && series.length <= 4 && W >= 520 ? 92 : 0;
+    const m = { t: 12, r: 12 + labelW, b: 28, l: isPrice ? 64 : 48 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+
+    const ts = series.flatMap((s) => s.pts.map((p) => p.t));
+    const t0 = Math.min(...ts), t1 = Math.max(...ts);
+    const vs = series.flatMap((s) => s.pts.map((p) => p.v));
+    let lo = Math.min(...vs), hi = Math.max(...vs);
+    if (!isPrice) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+    const pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.05 || 1;
+    lo -= pad; hi += pad;
+    const { ticks } = niceTicks(lo, hi, W < 520 ? 4 : 5);
+
+    const x = (t) => m.l + (t1 === t0 ? iw / 2 : ((t - t0) / (t1 - t0)) * iw);
+    const y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * ih;
+    const yFmt = (v) => isPrice
+      ? (Math.abs(v) >= 1e4 ? (v / 1e4).toLocaleString("ko-KR", { maximumFractionDigits: 1 }) + "만" : fmtPrice(v, sel.currency))
+      : (v > 0 ? "+" : "") + v.toFixed(Math.abs(ticks[1] - ticks[0]) < 1 ? 1 : 0) + "%";
+
+    // x 눈금: 월 경계 또는 균등
+    const xt = [];
+    const nx = W < 520 ? 4 : 6;
+    for (let i = 0; i <= nx; i++) xt.push(t0 + ((t1 - t0) * i) / nx);
+
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc($("chartTitle").textContent)} 선 그래프">`;
+    for (const v of ticks) {
+      const zero = !isPrice && Math.abs(v) < 1e-9;
+      svg += `<line x1="${m.l}" x2="${m.l + iw}" y1="${y(v)}" y2="${y(v)}" stroke="var(${zero ? "--ink-3" : "--grid"})" stroke-width="1" ${zero ? 'stroke-dasharray="3 3"' : ""}/>`;
+      svg += `<text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end">${yFmt(v)}</text>`;
+    }
+    xt.forEach((t, i) => {
+      const anchor = i === 0 ? "start" : i === xt.length - 1 ? "end" : "middle";
+      svg += `<text x="${x(t)}" y="${H - 8}" text-anchor="${anchor}">${shortDate(t)}</text>`;
+    });
+
+    if (isPrice) {
+      const s = series[0];
+      const line = s.pts.map((p, i) => (i ? "L" : "M") + x(p.t).toFixed(1) + "," + y(p.v).toFixed(1)).join("");
+      svg += `<defs><linearGradient id="fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(${s.color})" stop-opacity=".22"/><stop offset="1" stop-color="var(${s.color})" stop-opacity="0"/></linearGradient></defs>`;
+      svg += `<path d="${line}L${x(s.pts.at(-1).t)},${m.t + ih}L${x(s.pts[0].t)},${m.t + ih}Z" fill="url(#fill)"/>`;
+    }
+    for (const s of series) {
+      const line = s.pts.map((p, i) => (i ? "L" : "M") + x(p.t).toFixed(1) + "," + y(p.v).toFixed(1)).join("");
+      svg += `<path d="${line}" fill="none" stroke="var(${s.color})" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      const last = s.pts.at(-1);
+      svg += `<circle cx="${x(last.t)}" cy="${y(last.v)}" r="4" fill="var(${s.color})" stroke="var(--surface)" stroke-width="2"/>`;
+    }
+    // 직접 라벨 (4개 이하, 넓은 화면) — 겹치지 않게 세로로 밀어냄
+    if (labelW) {
+      const labels = series.map((s) => ({ s, yy: y(s.pts.at(-1).v) })).sort((a, b) => a.yy - b.yy);
+      for (let i = 1; i < labels.length; i++) labels[i].yy = Math.max(labels[i].yy, labels[i - 1].yy + 30);
+      const over = labels.length ? labels.at(-1).yy - (m.t + ih) : 0;
+      if (over > 0) labels.forEach((l) => (l.yy -= over));
+      for (const { s, yy } of labels) {
+        const v = s.pts.at(-1).v;
+        svg += `<text x="${m.l + iw + 10}" y="${yy - 2}" style="fill:var(--ink);font-weight:600">${esc(s.name)}</text>`;
+        svg += `<text x="${m.l + iw + 10}" y="${yy + 13}" class="${dir(v)}" style="fill:currentColor">${v > 0 ? "+" : ""}${v.toFixed(2)}%</text>`;
+      }
+    }
+    svg += `<line id="xh" y1="${m.t}" y2="${m.t + ih}" stroke="var(--ink-3)" stroke-width="1" visibility="hidden"/>`;
+    svg += `<g id="dots"></g>`;
+    svg += `<rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent" id="hit"/>`;
+    svg += `</svg><div class="tip" id="tip" hidden></div>`;
+    box.innerHTML = svg;
+
+    $("legend").innerHTML = series.length > 1
+      ? series.map((s) => `<span><i style="background:var(${s.color})"></i>${esc(s.name)}</span>`).join("")
+      : "";
+
+    // 호버: 가장 가까운 날짜에 크로스헤어 + 툴팁
+    const dates = [...new Set(series.flatMap((s) => s.pts.map((p) => p.t)))].sort((a, b) => a - b);
+    const svgEl = box.querySelector("svg"), tip = $("tip"), xh = $("xh"), dots = $("dots");
+    const move = (ev) => {
+      const r = svgEl.getBoundingClientRect();
+      const px = ((ev.clientX - r.left) / r.width) * W;
+      let t = dates[0];
+      for (const d of dates) if (Math.abs(x(d) - px) < Math.abs(x(t) - px)) t = d;
+      xh.setAttribute("x1", x(t)); xh.setAttribute("x2", x(t)); xh.setAttribute("visibility", "visible");
+      const rows = series.map((s) => ({ s, p: s.pts.find((p) => p.t === t) })).filter((o) => o.p);
+      dots.innerHTML = rows.map(({ s, p }) => `<circle cx="${x(p.t)}" cy="${y(p.v)}" r="4.5" fill="var(${s.color})" stroke="var(--surface)" stroke-width="2"/>`).join("");
+      rows.sort((a, b) => b.p.v - a.p.v);
+      tip.innerHTML = `<div class="d">${fmtDate(new Date(t).toISOString().slice(0, 10))}</div>` + rows.map(({ s, p }) => {
+        const val = isPrice
+          ? `${fmtPrice(p.close, s.currency)} ${esc(curLabel(s.currency))}`
+          : `<span class="${dir(p.v)}">${p.v > 0 ? "+" : ""}${p.v.toFixed(2)}%</span>`;
+        return `<div class="r"><i style="background:var(${s.color})"></i>${esc(s.name)}<b>${val}</b></div>`;
+      }).join("");
+      tip.hidden = false;
+      const scale = r.width / W, tx = x(t) * scale;
+      const tw = tip.offsetWidth;
+      tip.style.left = Math.min(Math.max(0, tx + 14 + tw > r.width ? tx - tw - 14 : tx + 14), r.width - tw) + "px";
+      tip.style.top = m.t * scale + "px";
+    };
+    const leave = () => { tip.hidden = true; xh.setAttribute("visibility", "hidden"); dots.innerHTML = ""; };
+    const hit = $("hit");
+    hit.addEventListener("pointermove", move);
+    hit.addEventListener("pointerdown", move);
+    hit.addEventListener("pointerleave", leave);
+  }
+
+  // ---------- 표 ----------
+  function renderTable() {
+    const byDate = new Map();
+    for (const r of state.rows) {
+      if (!byDate.has(r.date)) byDate.set(r.date, {});
+      byDate.get(r.date)[r.ticker] = r.close;
+    }
+    const dates = [...byDate.keys()].sort().reverse();
+    const prevOf = {};
+    const sortedAsc = [...dates].reverse();
+    const chg = {};
+    for (const d of sortedAsc) for (const s of state.stocks) {
+      const v = byDate.get(d)[s.ticker];
+      if (v == null) continue;
+      if (prevOf[s.ticker] != null) (chg[d] ||= {})[s.ticker] = (v / prevOf[s.ticker] - 1) * 100;
+      prevOf[s.ticker] = v;
+    }
+    let html = `<table><thead><tr><th>날짜</th>${state.stocks.map((s) => `<th>${esc(s.name)}<br><span style="font-weight:400">${esc(s.ticker)} · ${esc(curLabel(s.currency))}</span></th>`).join("")}</tr></thead><tbody>`;
+    for (const d of dates) {
+      html += `<tr><td>${fmtDate(d)}</td>${state.stocks.map((s) => {
+        const v = byDate.get(d)[s.ticker];
+        if (v == null) return "<td class='flat'>–</td>";
+        const c = chg[d]?.[s.ticker];
+        return `<td>${fmtPrice(v, s.currency)}${c != null ? ` <span class="${dir(c)}" style="font-size:12px">${c > 0 ? "+" : ""}${c.toFixed(2)}%</span>` : ""}</td>`;
+      }).join("")}</tr>`;
+    }
+    $("table").innerHTML = html + "</tbody></table>";
+  }
+
+  function syncControls() {
+    for (const b of $("modeSeg").children) b.setAttribute("aria-pressed", b.dataset.mode === state.mode);
+    for (const b of $("rangeSeg").children) b.setAttribute("aria-pressed", +b.dataset.range === state.range);
+  }
+
+  function render() {
+    if (!state.stocks.length) return;
+    syncControls();
+    renderTotals();
+    renderCards();
+    renderChart();
+    renderTable();
+  }
+
+  // ---------- 이벤트 ----------
+  $("modeSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    state.mode = b.dataset.mode; store.set("mode", state.mode); render();
+  });
+  $("rangeSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    state.range = +b.dataset.range; store.set("range", state.range); render();
+  });
+  $("stocks").addEventListener("click", (e) => {
+    const c = e.target.closest(".card"); if (!c) return;
+    if (state.mode === "price" && state.selected === c.dataset.ticker) state.mode = "compare";
+    else { state.mode = "price"; state.selected = c.dataset.ticker; }
+    render();
+  });
+
+  const readFile = (f) => f && f.text().then((t) => {
+    if (!ingest(parseCSV(t), false)) $("sub").textContent = "이 파일에서 date, ticker, close 열을 찾지 못했습니다. data/closing_prices.csv 형식의 파일을 선택하세요.";
+  });
+  $("file").addEventListener("change", (e) => readFile(e.target.files[0]));
+  document.addEventListener("dragover", (e) => e.preventDefault());
+  document.addEventListener("drop", (e) => { e.preventDefault(); readFile(e.dataTransfer.files[0]); });
+
+  let rt;
+  addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => state.stocks.length && renderChart(), 120); });
+
+  // ---------- 시작 ----------
+  state.mode = store.get("mode") === "price" ? "price" : "compare";
+  const savedRange = store.get("range");
+  if (savedRange != null && [30, 91, 182, 365, 0].includes(+savedRange)) state.range = +savedRange;
+
+  fetch("data/closing_prices.csv", { cache: "no-store" })
+    .then((r) => (r.ok ? r.text() : Promise.reject()))
+    .then((t) => { if (!ingest(parseCSV(t), false)) throw 0; })
+    .catch(() => ingest(parseCSV(sampleCSV()), true));
+})();
+</script>
+</body>
+</html>
